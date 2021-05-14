@@ -167,8 +167,9 @@ describe('onCreate', () => {
     };
 
     userFactory.onCreate(onCreate);
-    const user = await userFactory.create();
-    expect(user.id).toEqual('1');
+    expect(async () => {
+      return userFactory.create();
+    }).rejects.toEqual(/no onCreate defined/);
   });
 
   it('chains return values from onCreate hooks', async () => {

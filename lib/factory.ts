@@ -11,18 +11,18 @@ import { merge, mergeCustomizer } from './merge';
 
 const SEQUENCE_START_VALUE = 1;
 
-export class Factory<T, I = any> {
+export class Factory<T, I = any, C = T> {
   // id is an object so it is shared between extended factories
   private id: { value: number } = { value: SEQUENCE_START_VALUE };
 
   private _afterBuilds: HookFn<T>[] = [];
-  private _onCreates: CreateFn<T>[] = [];
+  private _onCreates: CreateFn<T, C>[] = [];
   private _associations: Partial<T> = {};
   private _params: DeepPartial<T> = {};
   private _transient: Partial<I> = {};
 
   constructor(
-    private readonly generator: (opts: GeneratorFnOptions<T, I>) => T,
+    private readonly generator: (opts: GeneratorFnOptions<T, I, C>) => T,
   ) {}
 
   /**
@@ -32,10 +32,10 @@ export class Factory<T, I = any> {
    * @template C The class of the factory object being created.
    * @param generator - your factory function
    */
-  static define<T, I = any, C = Factory<T, I>>(
-    this: new (generator: GeneratorFn<T, I>) => C,
-    generator: GeneratorFn<T, I>,
-  ): C {
+  static define<T, I = any, C = T, F = Factory<T, I, C>>(
+    this: new (generator: GeneratorFn<T, I, C>) => F,
+    generator: GeneratorFn<T, I, C>,
+  ): F {
     return new this(generator);
   }
 
@@ -69,7 +69,7 @@ export class Factory<T, I = any> {
   async create(
     params: DeepPartial<T> = {},
     options: BuildOptions<T, I> = {},
-  ): Promise<T> {
+  ): Promise<C> {
     return this.builder(params, options).create();
   }
 
@@ -77,8 +77,8 @@ export class Factory<T, I = any> {
     number: number,
     params: DeepPartial<T> = {},
     options: BuildOptions<T, I> = {},
-  ): Promise<T[]> {
-    let list: Promise<T>[] = [];
+  ): Promise<C[]> {
+    let list: Promise<C>[] = [];
     for (let i = 0; i < number; i++) {
       list.push(this.create(params, options));
     }
@@ -102,7 +102,7 @@ export class Factory<T, I = any> {
    * @param onCreateFn - The function to call. IT accepts your object of type T. The value this function returns gets returned from "create"
    * @return a new factory
    */
-  onCreate(onCreateFn: CreateFn<T>): this {
+  onCreate(onCreateFn: CreateFn<T, C>): this {
     const factory = this.clone();
     factory._onCreates.push(onCreateFn);
     return factory;
@@ -148,9 +148,9 @@ export class Factory<T, I = any> {
     this.id.value = SEQUENCE_START_VALUE;
   }
 
-  protected clone<C extends Factory<T, I>>(this: C): C {
+  protected clone<F extends Factory<T, I, C>>(this: F): F {
     const copy = new (this.constructor as {
-      new (generator: GeneratorFn<T, I>): C;
+      new (generator: GeneratorFn<T, I, C>): F;
     })(this.generator);
     Object.assign(copy, this);
     copy._onCreates = [...this._onCreates];
@@ -166,7 +166,7 @@ export class Factory<T, I = any> {
     params: DeepPartial<T> = {},
     options: BuildOptions<T, I> = {},
   ) {
-    return new FactoryBuilder<T, I>(
+    return new FactoryBuilder<T, I, C>(
       this.generator,
       this.sequence(),
       merge({}, this._params, params, mergeCustomizer),

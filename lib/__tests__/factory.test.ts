@@ -65,6 +65,40 @@ describe('factory.create', () => {
     expect(user.name).toEqual('susan');
     expect(user.address?.state).toEqual('MI');
   });
+
+  it('returns the type specified by the third type parameter', async () => {
+    type UserBeforeSave = {
+      name: string;
+    };
+
+    type User = {
+      name: string;
+      id: number;
+    };
+
+    const u: User = {
+      name: 'sdf',
+      id: 2,
+    };
+
+    const factory = Factory.define<UserBeforeSave, any, User>(
+      ({ onCreate }) => {
+        onCreate(async user => {
+          return { ...user, id: 2 };
+        });
+
+        return { name: 'Ralph' };
+      },
+    );
+
+    const user = factory.build();
+    const user2 = await factory.create();
+
+    // @ts-expect-error
+    user.id;
+
+    expect(user2.id).toEqual(2);
+  });
 });
 
 describe('factory.createList', () => {
